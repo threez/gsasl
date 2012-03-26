@@ -185,6 +185,50 @@ describe "Authentications" do
     end
   end
   
+  describe "SECURID" do
+    before(:each) do
+      @client = @session.create_client("SECURID")
+      @server = @session.create_server("SECURID")
+    end
+    
+    it "should be able to authenticate correctly" do
+      @server.callback do |property|
+        if property == Gsasl::GSASL_VALIDATE_SECURID
+          if @server[Gsasl::GSASL_AUTHID] == "joe" && 
+            @server[Gsasl::GSASL_PASSCODE] == "579a0eaa23c2c60a1bc5"
+            Gsasl::GSASL_OK
+          end
+        end
+      end
+      
+      @client[Gsasl::GSASL_AUTHID] = "joe"
+      @client[Gsasl::GSASL_PASSCODE] = "579a0eaa23c2c60a1bc5"
+      
+      @client.authenticate(@server).should be_true
+    end
+    
+    it "should be possible to not authenticate correctly" do
+      @server.callback do |property|
+        if property == Gsasl::GSASL_PASSCODE
+          if @server[Gsasl::GSASL_AUTHID] == "joe"
+            @server[Gsasl::GSASL_PASSCODE] = "579a0eaa23c2c60a1bc5"
+          end
+          Gsasl::GSASL_OK
+        end
+      end
+      
+      @client[Gsasl::GSASL_AUTHID] = "joe"
+      @client[Gsasl::GSASL_PASSCODE] = "sekshfkjhcret"
+      
+      @client.authenticate(@server).should be_false
+    end
+    
+    after(:each) do
+      @client.close
+      @server.close
+    end
+  end
+  
   after(:each) do
     @session.close
   end
