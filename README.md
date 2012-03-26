@@ -48,4 +48,7 @@ In the following example the server and the client are on the same machine. If t
     client[Gsasl::GSASL_PASSWORD] = "secret"
     
     client.authenticate(server).should be_true
-  
+
+# Copyright Licence
+
+Copyright (c) 2012 Vincent Landgraf All Rights Reserved. Released under a MIT License.
