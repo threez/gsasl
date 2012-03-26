@@ -77,6 +77,8 @@ module Gsasl
         
         if (result == GSASL_NEEDS_MORE || result == GSASL_OK)
           result, output = server.send(output)
+        else
+          Gsasl.raise_error!(result)
         end
       end while result == GSASL_NEEDS_MORE
       
