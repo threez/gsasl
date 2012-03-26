@@ -17,6 +17,16 @@ This libaray is a lib ffi based wrapper for the [GNU SASL](http://www.gnu.org/so
 * **SAML20**: Experimental SAML20 authentication.
 * **OPENID20**: Experimental OPENID20 authentication.
 
+# Install libgsasl
+
+To use the library the libgsasl must be installed on the system.
+
+## Mac OS X
+
+Install the library using homebrew:
+
+    brew install libgsasl
+
 # Use in Ruby
 
 In the following example the server and the client are on the same machine. If the server is on the remote site, one has to implement a server that will return the next challenge on `server#read` and implements a `server#send` to send the challenge to the server. Also it is possible to not use the `#authenticate` function but to implement the processing individually.
@@ -25,7 +35,7 @@ In the following example the server and the client are on the same machine. If t
     client = session.create_client("CRAM-MD5")
     server = session.create_server("CRAM-MD5")
     
-    server.set_callback do |property|
+    server.callback do |property|
       if property == Gsasl::GSASL_PASSWORD
         if server[Gsasl::GSASL_AUTHID] == "joe"
           server[Gsasl::GSASL_PASSWORD] = "secret"
