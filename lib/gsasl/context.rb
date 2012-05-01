@@ -82,6 +82,48 @@ module Gsasl
       @peers[peer.session.address] = peer
       peer
     end
+    
+    # Authenticate against a remote peer using a socket like authenication
+    # scheme.
+    # @param [String] mechanism the SASL mechanism to use
+    # @param [String] authid the username auth id of the user to use for auth.
+    # @param [String] password the password of the specified user
+    # @return [Boolean] true if the authentication was successful, false 
+    #   otherwise
+    # @yield [remote] the block that defines how to interact with the remote
+    #   site
+    # @yieldparam [Gsasl::RemoteAuthenticator] remote the remote authenticator
+    #   that needs to be defined in order for gsasl to receive and set data.
+    # @example Authenticate against an imap server with PLAIN authentication
+    #   # connect to an imap server
+    #   require 'socket'
+    #   socket = TCPSocket.new('imap.example.com', 143)
+    #   puts socket.gets
+    #   
+    #   # issue an authenticate command
+    #   socket.print "a1 AUTHENTICATE PLAIN\r\n"
+    #   
+    #   # authenticate using the imap4 protocol specifics
+    #   context = Gsasl::Context.new
+    #   context.authenticate_with("PLAIN", "user@example.com", "pass") do |remote|
+    #     remote.receive { socket.gets.gsub!("\r\n|+\s", "") }
+    #     remote.send    { |data| socket.print "#{data}\r\n" }
+    #   end
+    #   puts socket.gets # => capabilities after authentication
+    #   
+    #   # logout
+    #   socket.print "a2 LOGOUT\r\n"
+    #   puts socket.gets
+    #   
+    #   # close connection
+    #   socket.close
+    #   context.close
+    def authenticate_with(mechanism, authid, password, &block)
+      client = create_client(mechanism)
+      client.credentials!(authid, password)
+      client.authenticate_with(&block)
+      client.close
+    end
   
   private
     

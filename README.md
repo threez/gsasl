@@ -45,6 +45,35 @@ Install the library using ports (as root):
 
 # Use in Ruby
 
+## To authenticate against a server
+
+In this example a client authenticates against an IMAP4 server. The methode `#authenticate_with` is used to setup all the data and callbacks neccessary to perform the authentication.
+
+    # connect to an imap server
+    require 'socket'
+    socket = TCPSocket.new('imap.example.com', 143)
+    puts socket.gets
+    
+    # issue an authenticate command
+    socket.print "a1 AUTHENTICATE LOGIN\r\n"
+    
+    # authenticate using the imap4 protocol specifics
+    context = Gsasl::Context.new
+    context.authenticate_with("LOGIN", "user@example.com", "secret") do |remote|
+      remote.receive { socket.gets.gsub!("\r\n|+\s", "") }
+      remote.send    { |data| socket.print "#{data}\r\n" }
+    end
+    
+    # logout
+    puts socket.gets
+    socket.print "a2 LOGOUT\r\n"
+    
+    # close connection
+    puts socket.gets
+    socket.close
+
+## Advanced
+
 In the following example the server and the client are on the same machine. If the server is on the remote site, one has to implement a server that will return the next challenge on `server#read` and implements a `server#send` to send the challenge to the server. Also it is possible to not use the `#authenticate` function but to implement the processing individually.
 
     session = Gsasl::Context.new

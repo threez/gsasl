@@ -29,7 +29,8 @@ module Gsasl
     
     # Updates the peer with credential information
     # @param [String] authid the username auth id of the user to use for auth.
-    # @example [String] password the password of the specified user
+    # @param [String] password the password of the specified user
+    # @example
     #   peer.credentials! "username", "secret"
     def credentials!(authid, password)
       self[Gsasl::GSASL_AUTHID] = authid
@@ -38,7 +39,8 @@ module Gsasl
     
     # Updates the peer with secure id information
     # @param [String] authid the username auth id of the user to use for auth.
-    # @example [String] passcode the passcode of the specified id
+    # @param [String] passcode the passcode of the specified id
+    # @example
     #   peer.credentials! "username", "12312312331"
     def secureid!(authid, passcode)
       self[Gsasl::GSASL_AUTHID] = authid
@@ -255,6 +257,35 @@ module Gsasl
         result, output = server.send(input)
         break if result != Gsasl::GSASL_NEEDS_MORE
         _, input = process output
+      end
+      
+      result == Gsasl::GSASL_OK
+    end
+    
+    # Authenticate against a remote peer using a socket like authenication
+    # scheme.
+    # @return [Boolean] true if the authentication was successful, false 
+    #   otherwise
+    # @yield [remote] the block that defines how to interact with the remote
+    #   site
+    # @yieldparam [Gsasl::RemoteAuthenticator] remote the remote authenticator
+    #   that needs to be defined in order for gsasl to receive and set data.
+    # @example Authenticate with a ruby socket against an imap server
+    #   client.authenticate_with do |remote|
+    #     remote.receive { socket.gets.gsub!("\r\n|+\s", "") }
+    #     remote.send    { |data| socket.print "#{data}\r\n" }
+    #   end
+    def authenticate_with(&block)
+      result = GSASL_NEEDS_MORE
+      
+      # create a new authenticator and define its behaviour
+      remote = RemoteAuthenticator.new
+      block.call(remote)
+      
+      while result == GSASL_NEEDS_MORE
+        challenge = remote.receive
+        result, response = process challenge
+        remote.send(response)
       end
       
       result == Gsasl::GSASL_OK
