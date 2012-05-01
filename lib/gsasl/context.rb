@@ -60,9 +60,15 @@ module Gsasl
     # @return [Gsasl::Peer] the server peer
     # @example
     #   peer = @session.create_server("CRAM-MD5")
-    def create_server(mechanism_name)
+    # @example Server with password database attached directly
+    #   peer = @session.create_server("CRAM-MD5") do |type, authid|
+    #     DB.find_password_for_user(auth_id) if type == :password
+    #   end
+    def create_server(mechanism_name, realm = "gsasl", &block)
       peer = Peer.new(@context, mechanism_name, :server)
       @peers[peer.session.address] = peer
+      peer.realm = realm
+      peer.authentication_callback = block if block_given?
       peer
     end
     

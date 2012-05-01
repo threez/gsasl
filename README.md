@@ -33,21 +33,12 @@ In the following example the server and the client are on the same machine. If t
 
     session = Gsasl::Context.new
     client = session.create_client("CRAM-MD5")
-    server = session.create_server("CRAM-MD5")
-    
-    server.callback do |property|
-      if property == Gsasl::GSASL_PASSWORD
-        if server[Gsasl::GSASL_AUTHID] == "joe"
-          server[Gsasl::GSASL_PASSWORD] = "secret"
-        end
-        Gsasl::GSASL_OK
-      end
+    server = session.create_server("CRAM-MD5") do |type, authid|
+      "secret" if type = :password && authid == "joe"
     end
     
-    client[Gsasl::GSASL_AUTHID] = "joe"
-    client[Gsasl::GSASL_PASSWORD] = "secret"
-    
-    client.authenticate(server).should be_true
+    @client.credentials!("joe", "secret")
+    @client.authenticate(@server).should be_true
 
 # Copyright Licence
 

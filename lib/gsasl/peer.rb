@@ -1,3 +1,5 @@
+require 'digest/md5'
+  
 module Gsasl
   # A peer is a client or server side that processes data to do an
   # authentication.
@@ -25,6 +27,44 @@ module Gsasl
       @session = peer.get_pointer(0)
     end
     
+    # Updates the peer with credential information
+    # @param [String] authid the username auth id of the user to use for auth.
+    # @example [String] password the password of the specified user
+    #   peer.credentials! "username", "secret"
+    def credentials!(authid, password)
+      self[Gsasl::GSASL_AUTHID] = authid
+      self[Gsasl::GSASL_PASSWORD] = password
+    end
+    
+    # Updates the peer with secure id information
+    # @param [String] authid the username auth id of the user to use for auth.
+    # @example [String] passcode the passcode of the specified id
+    #   peer.credentials! "username", "12312312331"
+    def secureid!(authid, passcode)
+      self[Gsasl::GSASL_AUTHID] = authid
+      self[Gsasl::GSASL_PASSCODE] = passcode
+    end
+    
+    # Updates the peer with a service definition
+    # @param [String] name the name of the service. a list of service names
+    #   can be found here: http://www.iana.org/assignments/gssapi-service-names/gssapi-service-names.xml
+    # @param [String] hosname the name of the host the service is on
+    # @example
+    #   peer.service! "smtp", "localhost"
+    def service!(name, hostname)
+      self[Gsasl::GSASL_SERVICE] = name
+      self[Gsasl::GSASL_HOSTNAME] = hostname
+    end
+    
+    # Update the anoynmous token that the client peer used to authenticate with
+    #   the server
+    # @param [String] token the token that will be send to the server
+    # @example
+    #   peer.anonymous! "some-token"
+    def anonymous!(token)
+      self[Gsasl::GSASL_ANONYMOUS_TOKEN] = token
+    end
+    
     # Sets a property for this peer.
     # @param [Fixnum] property on of the Gsasl API Keys
     # @param [String] value the value tho set for the api key
@@ -43,12 +83,105 @@ module Gsasl
       Gsasl.gsasl_property_get(@session, property)
     end
     
+    # Update the realm of the peer
+    # @param [String] the realm that should be set on the peer
+    # @example
+    #   peer.realm = "Awesome SMTPD"
+    def realm=(val)
+      self[Gsasl::GSASL_REALM] = val
+    end
+    
+    # Returns the realm that is set for the peer
+    # @return [String, nil] the realm if one was set or nil
+    def realm
+      self[Gsasl::GSASL_REALM]
+    end
+    
+    # Update authzid for external authentication
+    # @param [String] the authzid that should be set on the peer
+    # @example
+    #   peer.realm = "Awesome SMTPD"
+    def authzid=(val)
+      self[Gsasl::GSASL_AUTHZID] = val
+    end
+    
+    # Returns the authzid for external authentication
+    # @return [String, nil] the authzid if one was set or nil
+    def authzid
+      self[Gsasl::GSASL_AUTHZID]
+    end
+    
+    # Returns the authid for authentication
+    # @return [String, nil] the authid if one was set or nil
+    def authid
+      self[Gsasl::GSASL_AUTHID]
+    end
+    
+    # Generate a digest md5 hased password that can be stored in the database
+    # to authenticate the user without saving a plaintext password.
+    # @note if the realm of the peer is set, it will be used to generate the
+    #   hash. Therefore it has tp be set later on the peer also to match the
+    #   password again. Alternatively the realm can be passed directly.
+    # @param [String] authid the username or id to generate the password for
+    # @param [String] password the password to hash
+    # @param [String] realm the realm if not passed the peer realm will be used
+    #   if no realm is set to an empty string ("")
+    def digest_md5_hashed_password(authid, password, realm = nil)
+      Digest::MD5.hexdigest("#{authid}:#{realm || self.realm}:#{password}")
+    end
+    
     # Registers a callback for the peer. In case a variable is not provided.
     # @yield [property] The callback that will be calles during the processing.
     # @yieldparam [Fixnum] property a property for the 
     # @yieldreturn [Fixnum, nil] The return code for the callback or nil
     def callback(&block)
       @callback = block
+    end
+    
+    def authentication_callback=(block)
+      self.callback do |property|
+        case property
+        when Gsasl::GSASL_PASSWORD
+          handle_password_authentication(&block)
+        when Gsasl::GSASL_VALIDATE_SECURID
+          handle_secureid_authentication(&block)
+        when Gsasl::GSASL_DIGEST_MD5_HASHED_PASSWORD
+          handle_digest_md5_authentication(&block)
+        when Gsasl::GSASL_VALIDATE_ANONYMOUS
+          handle_anonymous_authentication(&block)
+        when Gsasl::GSASL_VALIDATE_EXTERNAL
+          handle_external_authentication(&block)
+        end
+      end
+    end
+    
+    def handle_password_authentication
+      if password = yield(:password, authid)
+        self[Gsasl::GSASL_PASSWORD] = password
+        Gsasl::GSASL_OK
+      end
+    end
+    
+    def handle_digest_md5_authentication
+      if hash = yield(:digest_md5_hashed_password, authid)
+        self[Gsasl::GSASL_DIGEST_MD5_HASHED_PASSWORD] = hash
+        Gsasl::GSASL_OK
+      end
+    end
+    
+    def handle_secureid_authentication
+      if secureid = yield(:passcode, authid)
+        self[Gsasl::GSASL_PASSCODE] = secureid
+        Gsasl::GSASL_OK
+      end
+    end
+    
+    def handle_anonymous_authentication
+      Gsasl::GSASL_OK if yield(:anonymous, self[Gsasl::GSASL_ANONYMOUS_TOKEN])
+    end
+    
+    def handle_external_authentication
+      Gsasl::GSASL_OK if yield(:external, authzid)
     end
     
     # Used as a server hook in the local test environment.
@@ -68,21 +201,16 @@ module Gsasl
     # @param [Gsasl::Peer] server a server peer object
     # @return [Boolean] true if the authentication was successfull, 
     #   false otherwise
-    def authenticate(server)
-      result = -1
+    def authenticate(server = nil, &block)
+      result = GSASL_NEEDS_MORE
+      input = nil
       
-      begin
-        result, input = server.read
-        result, output = process input
-        
-        if (result == GSASL_NEEDS_MORE || result == GSASL_OK)
-          result, output = server.send(output)
-        else
-          Gsasl.raise_error!(result)
-        end
-      end while result == GSASL_NEEDS_MORE
+      while result == GSASL_NEEDS_MORE
+        result, output = server.send(input)
+        break if result != Gsasl::GSASL_NEEDS_MORE
+        _, input = process output
+      end
       
-      Gsasl.raise_error!(result) unless Gsasl::GSASL_AUTHENTICATION_ERROR
       result == Gsasl::GSASL_OK
     end
     

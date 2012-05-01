@@ -35,6 +35,22 @@ describe Gsasl::Context do
     @session.client_mechanisms.should include("PLAIN")
   end
   
+  context "realm" do
+    it "should initialize a server with a default realm" do
+      @server = @session.create_server("PLAIN")
+      @server.realm.should == "gsasl"
+    end
+    
+    it "should initialize the server with a diffeent realm" do
+      @server = @session.create_server("PLAIN", "test")
+      @server.realm.should == "test"
+    end
+    
+    after(:each) do
+      @server.close
+    end
+  end
+  
   after(:each) do
     @session.close
   end
