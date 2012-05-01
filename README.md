@@ -9,8 +9,11 @@ This libaray is a lib ffi based wrapper for the [GNU SASL](http://www.gnu.org/so
 * **CRAM-MD5**: Challenge-Response Authentication Mechanism.
 * **DIGEST-MD5**: Digest Authentication.
 * **SCRAM-SHA-1**: SCRAM-SHA-1 authentication.
-* **NTLM**: Microsoft NTLM authentication.
 * **SECURID**: Authentication using tokens.
+
+Platfrom and compile flags dependend mechanisms:
+
+* **NTLM**: Microsoft NTLM authentication.
 * **GSSAPI**: GSSAPI (Kerberos 5) authentication.
 * **GS2-KRB5**: Improved GSSAPI (Kerberos 5) authentication.
 * **KERBEROS\_V5**: Experimental KERBEROS\_V5 authentication.
@@ -19,13 +22,26 @@ This libaray is a lib ffi based wrapper for the [GNU SASL](http://www.gnu.org/so
 
 # Install libgsasl
 
-To use the library the libgsasl must be installed on the system.
+To use the library the libgsasl must be installed on the system. The gem uses libffi to access the library so no further comilation needed. It also should work with all important versions of ruby.
 
 ## Mac OS X
 
 Install the library using homebrew:
 
     brew install libgsasl
+    
+## Debian & Ubuntu
+
+Install the library using apt-get:
+
+    sudo apt-get install libgsasl7
+
+## FreeBSD
+
+Install the library using ports (as root):
+
+    cd /usr/ports/security/gsasl/
+    make install clean
 
 # Use in Ruby
 

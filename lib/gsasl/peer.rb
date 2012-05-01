@@ -48,7 +48,7 @@ module Gsasl
     # Updates the peer with a service definition
     # @param [String] name the name of the service. a list of service names
     #   can be found here: http://www.iana.org/assignments/gssapi-service-names/gssapi-service-names.xml
-    # @param [String] hosname the name of the host the service is on
+    # @param [String] hostname the name of the host the service is on
     # @example
     #   peer.service! "smtp", "localhost"
     def service!(name, hostname)
@@ -84,7 +84,7 @@ module Gsasl
     end
     
     # Update the realm of the peer
-    # @param [String] the realm that should be set on the peer
+    # @param [String] val the realm that should be set on the peer
     # @example
     #   peer.realm = "Awesome SMTPD"
     def realm=(val)
@@ -98,7 +98,7 @@ module Gsasl
     end
     
     # Update authzid for external authentication
-    # @param [String] the authzid that should be set on the peer
+    # @param [String] val the authzid that should be set on the peer
     # @example
     #   peer.realm = "Awesome SMTPD"
     def authzid=(val)
@@ -138,6 +138,14 @@ module Gsasl
       @callback = block
     end
     
+    # Sets an authentication callback on the peer. The passed block will be
+    # called to determine the authentication password, secureid, password hash
+    # etc.. Depending on what mechanisms one supports different types must be
+    # handled.
+    # @yieldparam [Symbol] type is that should be handled in this case
+    # @yieldparam [String] authid the authenticated id
+    # @yieldreturn [String, true, nil] a mechanism specific value or no value
+    #   to indicate a failed authentication
     def authentication_callback=(block)
       self.callback do |property|
         case property
@@ -155,6 +163,13 @@ module Gsasl
       end
     end
     
+    # Handles the password authentication with the passed block. Therefor the
+    # block has to return the password for the passed user. No return value means
+    # that the user is unknown and the authentication fails.
+    # @yield [type, authid] the block that handles password gathering.
+    # @yieldparam [Symbol] type is allways :password for password auth
+    # @yieldparam [String] authid the authenticated id
+    # @yieldreturn [String, nil] the password or nil if the user wasn't found
     def handle_password_authentication
       if password = yield(:password, authid)
         self[Gsasl::GSASL_PASSWORD] = password
@@ -162,6 +177,16 @@ module Gsasl
       end
     end
     
+    # Handles the digest md5 based password hash authentication with the passed
+    # block. Therefor theblock has to return the hashed password for the passed
+    # user. No return value means that the user is unknown and the 
+    # authentication fails.
+    # @yield [type, authid] the block that handles password hash gathering.
+    # @yieldparam [Symbol] type is allways :digest_md5_hashed_password for 
+    #   digest md5 based password hash auth
+    # @yieldparam [String] authid the authenticated id
+    # @yieldreturn [String, nil] the password hash or nil if the user wasn't
+    #   found
     def handle_digest_md5_authentication
       if hash = yield(:digest_md5_hashed_password, authid)
         self[Gsasl::GSASL_DIGEST_MD5_HASHED_PASSWORD] = hash
@@ -169,6 +194,13 @@ module Gsasl
       end
     end
     
+    # Handles the secureid authentication with the passed block. Therefor the
+    # block has to return the secureid for the passed user. No return value means
+    # that the user is unknown and the authentication fails.
+    # @yield [type, authid] the block that handles secureid gathering.
+    # @yieldparam [Symbol] type is allways :passcode for secureid auth
+    # @yieldparam [String] authid the authenticated id
+    # @yieldreturn [String, nil] the secureid or nil if the user wasn't found
     def handle_secureid_authentication
       if secureid = yield(:passcode, authid)
         self[Gsasl::GSASL_PASSCODE] = secureid
@@ -176,10 +208,24 @@ module Gsasl
       end
     end
     
+    # Handles the anonymous authentication with the passed block. Therefor the
+    # block has to return the success for the anonymous user. No return value
+    # means that the user is not allowed and the authentication fails.
+    # @yield [type, authid] the block that handles anonymous authentication
+    # @yieldparam [Symbol] type is allways :anonymous for external auth
+    # @yieldparam [String] authid the authenticated id
+    # @yieldreturn [Boolean, nil] true or nil if the anonymous isn't allowed
     def handle_anonymous_authentication
       Gsasl::GSASL_OK if yield(:anonymous, self[Gsasl::GSASL_ANONYMOUS_TOKEN])
     end
     
+    # Handles the external authentication with the passed block. Therefor the
+    # block has to return the success for the passed user. No return value means
+    # that the user is unknown and the authentication fails.
+    # @yield [type, authid] the block that handles external authentication
+    # @yieldparam [Symbol] type is allways :external for external auth
+    # @yieldparam [String] authid the authenticated id
+    # @yieldreturn [Boolean, nil] true or nil if the user wasn't authenticated
     def handle_external_authentication
       Gsasl::GSASL_OK if yield(:external, authzid)
     end
@@ -201,7 +247,7 @@ module Gsasl
     # @param [Gsasl::Peer] server a server peer object
     # @return [Boolean] true if the authentication was successfull, 
     #   false otherwise
-    def authenticate(server = nil, &block)
+    def authenticate(server)
       result = GSASL_NEEDS_MORE
       input = nil
       
