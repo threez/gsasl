@@ -4,8 +4,8 @@ module Gsasl
   extend FFI::Library
   begin
     ffi_lib "libgsasl"
-  rescue LoadError # debain has a different name for the libgsasl library
-    ffi_lib "libgsasl7"
+  rescue LoadError # debain/ubuntu has a different name for the libgsasl library
+    ffi_lib "libgsasl.so.7"
   end
   
   # RFC 2222: SASL mechanisms are named by strings, from 1 to 20
