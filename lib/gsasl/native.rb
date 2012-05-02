@@ -2,7 +2,11 @@ require 'ffi'
 
 module Gsasl
   extend FFI::Library
-  ffi_lib "libgsasl"
+  begin
+    ffi_lib "libgsasl"
+  rescue LoadError # debain has a different name for the libgsasl library
+    ffi_lib "libgsasl7"
+  end
   
   # RFC 2222: SASL mechanisms are named by strings, from 1 to 20
   # characters in length, consisting of upper-case letters, digits,
