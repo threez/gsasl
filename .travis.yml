@@ -1,2 +1,2 @@
 before_script:
-  - sudo apt-get install libgsasl
+  - sudo apt-get install libgsasl7
