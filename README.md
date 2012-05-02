@@ -1,4 +1,4 @@
-# GNU SASL for Ruby
+# GNU SASL for Ruby [![Build Status](https://secure.travis-ci.org/threez/gsasl.png)](http://travis-ci.org/threez/gsasl)
 
 This libaray is a lib ffi based wrapper for the [GNU SASL](http://www.gnu.org/software/gsasl/) library. It supports a variaty of different authentication mechanisms. Those are the mechanisms supported for the current versions:
 
