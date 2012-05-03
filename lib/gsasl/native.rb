@@ -137,11 +137,13 @@ module Gsasl
   attach_function :gsasl_step64, [ :pointer, :string, :pointer], :int
   
   # Raises an error if the passed result is not GSASL_OK
-  # @param [Fixnum] result that should be checked
+  # @param [Fixnum] code that should be checked
   # @raises [GsaslError] if a different result occured
-  def self.raise_error!(result)
-    if result != GSASL_OK
-      raise GsaslError, Gsasl.gsasl_strerror(result)
+  def self.raise_error!(code)
+    if code != GSASL_OK
+      error = GsaslError.new(Gsasl.gsasl_strerror(code) + " [#{code}]")
+      error.code = code
+      raise error
     end
   end
   
