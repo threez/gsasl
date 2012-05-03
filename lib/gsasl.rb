@@ -1,9 +1,12 @@
 require "gsasl/version"
 require "gsasl/native"
-require "gsasl/context"
-require "gsasl/remote_authenticator"
-require "gsasl/peer"
 
 module Gsasl
-  class GsaslError < StandardError; end
+  autoload :Context, "gsasl/context"
+  autoload :RemoteAuthenticator, "gsasl/remote_authenticator"
+  autoload :Peer, "gsasl/peer"
+  
+  class GsaslError < StandardError;
+    attr_accessor :code
+  end
 end
