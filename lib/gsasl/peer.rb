@@ -156,7 +156,9 @@ module Gsasl
         when Gsasl::GSASL_VALIDATE_SECURID
           handle_secureid_authentication(&block)
         when Gsasl::GSASL_DIGEST_MD5_HASHED_PASSWORD
-          handle_digest_md5_authentication(&block)
+          handle_digest_md5_authentication(&block) ||
+          # fallback to password if there is no hash digest available
+          handle_password_authentication(&block)
         when Gsasl::GSASL_VALIDATE_ANONYMOUS
           handle_anonymous_authentication(&block)
         when Gsasl::GSASL_VALIDATE_EXTERNAL
@@ -260,6 +262,8 @@ module Gsasl
       end
       
       result == Gsasl::GSASL_OK
+    rescue GsaslError => ex
+      false
     end
     
     # Authenticate against a remote peer using a socket like authenication
@@ -291,6 +295,32 @@ module Gsasl
       result == Gsasl::GSASL_OK
     end
     
+    # Handles a client authentication request by the server peer.
+    # @param [String] client_initialization if the client already gives
+    #   initialization data before the process starts
+    # @example
+    #   auth_result = server.handle do |remote|
+    #     remote.recieve { io.gets.strip }
+    #     remote.send    { |data| io.print "+ #{data}\r\n" }
+    #   end
+    def handle(client_initialization = nil, &block)
+      result = GSASL_NEEDS_MORE
+      input = client_initialization
+
+      # create a new authenticator and define its behaviour
+      remote = RemoteAuthenticator.new
+      block.call(remote)
+      
+      while result == GSASL_NEEDS_MORE
+        # use the client initialization if given (once) otherwise receive
+        # from the remote client
+        result, response = process input
+        input = remote.send(response) if result == GSASL_NEEDS_MORE
+      end
+
+      result == Gsasl::GSASL_OK
+    end
+    
     # Close the authentication peer. This should be done after one
     # authenticaion.
     def close
@@ -307,7 +337,7 @@ module Gsasl
         output = output_ptr.get_pointer(0)
         [result, output.read_string.to_s]
       else
-        [result, nil]
+        Gsasl.raise_error!(result)
       end
     ensure  
       Gsasl.gsasl_free(output)
